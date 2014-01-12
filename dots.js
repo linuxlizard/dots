@@ -14,11 +14,6 @@ var squares = [];
 var new_line = { "x0" : 0, "y0" : 0,
                  "x1" : 0, "y1" : 0,
                  "valid": false };
-/* constants to indicate direction of user's new line */
-const north = 1;
-const south = 2;
-const east = 3;
-const west = 4;
 
 function drawdot(dot_x,dot_y) 
 {
@@ -154,34 +149,62 @@ function on_mousemove(evt)
 
 function check_closures()
 {
+    /* Search entire board for squares with three edges and close them */
     var row=0;
     var col=0;
-    for( row=0; row<squares.length ; row++ ) {
-        for( col=0 ; col<squares[0].length ; col++ ) {
+    var count = 0;
 
-            /* sanity checking */
-            if( squares[row][col] > 4 ) {
-                alert( "check_closures bug! at row="+row+" col="+col );
-                return;
-            }
+    while( 1 ) {
+        /* Count number of squares captured. If we capture a square, we need to
+         * continue to check if the closing line closed another new square
+         */
+        count = 0;
 
-            if( squares[row][col] == 3 ) {
-                /* this is mine! */
-                squares[row][col] += 1;
+        for( row=0; row<squares.length ; row++ ) {
+            for( col=0 ; col<squares[0].length ; col++ ) {
+                if( squares[row][col] == 3 ) {
+                    update_list = [ [row,col] ];
+    //                /* this is mine! */
+    //                squares[row][col] += 1;
 
-                console.log("claim row="+row+" col="+col);
+                    console.log("claim row="+row+" col="+col);
 
-                /* mark the closing edge, too */
-                horiz_lines[row][col] = 1;
-                horiz_lines[row+1][col] = 1;
-                vert_lines[row][col] = 1;
-                vert_lines[row][col+1] = 1;
+                    /* choose neighboring square to update refcount */
+                    if( horiz_lines[row][col]==0 ) {
+                        horiz_lines[row][col] = 1;      // North
+                        update_list.push( [row-1,col] ); // update above
+                    }
+                    else if( horiz_lines[row+1][col]==0 ) {
+                        horiz_lines[row+1][col] = 1;    // South
+                        update_list.push( [row+1,col] ); // update below
+                    }
+                    else if( vert_lines[row][col]==0 ) {
+                        vert_lines[row][col] = 1;       // West
+                        update_list.push( [row,col-1] ); // update left 
+                    }
+                    else if( vert_lines[row][col+1]==0 ) {
+                        vert_lines[row][col+1] = 1;     // East
+                        update_list.push( [row,col+1] ); // update right
+                    }
+
+                    update_squares_refcount( update_list );
+
+                    count += 1;
+                }
             }
         }
+
+        /* we didn't capture any squares in that iteration so we don't need to
+         * continue searching for new squares to capture */
+        if( count==0 ) {
+            break;
+        }
     }
+
+    sanity_check();
 }
 
-function update_neighboring_squares( squares_list )
+function update_squares_refcount( squares_list )
 {
     /* squares_list[] is an array of [row,col] pairs of squares positions that
      * need to be incremented. Called when we need to update the reference
@@ -202,13 +225,9 @@ function update_neighboring_squares( squares_list )
         if( square_row >= 0 && square_row < 9 &&
             square_col >=0 && square_col < 9 ) 
         {
-            /* sanity checking */
-            if( squares[square_row][square_col] > 4 ) {
-                alert( "on_mouseup() bug! at row="+row+" col="+col );
-                return;
-            }
-
-            /* Increment reference count. When hits 3, the square will close. */
+            /* Increment reference count. When hits 3, the square can close. */
+            console.log( "update refcount square_row=",square_row,
+                    "square_col=",square_col );
             squares[square_row][square_col] += 1;
         }
     }
@@ -225,30 +244,23 @@ function sanity_check()
         for( col=0 ; col<squares[0].length ; col++ ) {
 
             /* reference counter should always be in [0,4] */
-            if( squares[row][col] < 0 || squares[row][col] > 4 ) {
-                alert( "sanity square error at row="+row+" col="+col );
-                return;
-            }
+            console.assert( squares[row][col] >= 0 && squares[row][col] <= 4 );
 
             /* check for horiz/vert boundaries not matching the squares (reference
              * count should exactly match the squares neighboring lines)
              */
-    //        horiz_above = [row,col];
-    //        horiz_below = [row+1,col];
-    //        vert_left = [row,col];
-    //        vert_right = [row,col+1];
 
             var count=0;
-            count += horiz_lines[row][col];      // North 
-            if( row+1 < squares.length )  {
-                count += horiz_lines[row+1][col];    // South
+            count += horiz_lines[row][col];         // North 
+            if( row+1 < horiz_lines.length )  {
+                count += horiz_lines[row+1][col];   // South
             }
-            count += vert_lines[row][col];       // West
-            if( col+1 < squares[0].length ) {
-                count += vert_lines[row][col+1];     // East
+            count += vert_lines[row][col];          // West
+            if( col+1 < vert_lines[0].length ) {
+                count += vert_lines[row][col+1];    // East
             }
             if( count != squares[row][col] ) {
-                alert( "sanity square error at row="+row+" col="+col+
+                console.log( "Sanity Error! square at row="+row+" col="+col+
                         " square="+squares[row][col]+" neighbor_count="+count );
                 console.assert( count == squares[row][col] );
             }
@@ -266,7 +278,7 @@ function on_mouseup(evt) {
     mouse_is_down = false;
 
     if( !new_line.valid ) {
-        /* don't claim a square; just redraw a nice clean board */
+        /* don't capture a line; just redraw a nice clean board */
         redraw_board();
         return false;
     }
@@ -329,58 +341,33 @@ function on_mouseup(evt) {
         border_squares.push([row,col-1],[row,col]);
     }
 
-    /* did someone re-choose a line already in-use? */
-    var valid_move = false;
-
     if( new_line.x0 != new_line.x1 ) {
+        console.log("row="+row+" col="+col);
         /* adjust horizontal lines */
+        /* did user choose a line already in-use? */
         if( horiz_lines[row][col] == 0 ) {
             horiz_lines[row][col] = 1;
-            update_neighboring_squares(border_squares);
+            update_squares_refcount(border_squares);
             /* search for any three sided squares that can now be claimed */
             check_closures();
         }
     }
     if( new_line.y0 != new_line.y1 ) {
         /* adjust vertical lines */
+        /* did user choose a line already in-use? */
         if( vert_lines[row][col] == 0 ) {
             vert_lines[row][col] = 1;
-            update_neighboring_squares(border_squares);
+            update_squares_refcount(border_squares);
             /* search for any three sided squares that can now be claimed */
             check_closures();
         }
     }
 
-//    console.log(border_squares);
-
-    /* increment count of neighboring squares */
-//    if( valid_move ) {
-//        var i=0;
-//        var square_row = 0;
-//        var square_col = 0;
-//        for( i=0 ; i<border_squares.length ; i++ ) {
-//            square_row = border_squares[i][0];
-//            square_col = border_squares[i][1];
-//
-//            /* sanity checking */
-//            if( squares[square_row][square_col] > 4 ) {
-//                alert( "on_mouseup bug! at row="+row+" col="+col );
-//                return;
-//            }
-//
-//            squares[square_row][square_col] += 1;
-//        }
-//
-//        /* search for any three sided squares that can now be claimed */
-//        check_closures();
-//    }
-
 
     /* redraw board to erase user's unconnected line */
-//    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
-//    draw_dots();
-//    draw_board();
     redraw_board();
+
+    sanity_check();
 
     return false;
 }
@@ -416,8 +403,10 @@ function draw_lines_and_squares()
     var j=0;
     var x=20;
     var y=20;
-    for( i=0 ; i<10 ; i++ ) {   /* foreach row */
-        for( j=0 ; j<10 ; j++ ) {   /* foreach col */
+
+    /* draw vertical lines */
+    for( i=0 ; i<vert_lines.length ; i++ ) {   /* foreach row */
+        for( j=0 ; j<vert_lines[0].length ; j++ ) {   /* foreach col */
             if( vert_lines[i][j] ) { 
                 ctx.beginPath();
                 ctx.moveTo(x,y);
@@ -425,6 +414,17 @@ function draw_lines_and_squares()
                 ctx.strokeStyle="blue";
                 ctx.stroke();
             }
+            x += 20;
+        }
+        x = 20;
+        y += 20;
+    }
+
+    /* draw horizontal lines */
+    x=20;
+    y=20;
+    for( i=0 ; i<horiz_lines.length ; i++ ) {   /* foreach row */
+        for( j=0 ; j<horiz_lines[0].length ; j++ ) {   /* foreach col */
             if( horiz_lines[i][j] ) { 
                 ctx.beginPath();
                 ctx.moveTo(x,y);
@@ -432,17 +432,21 @@ function draw_lines_and_squares()
                 ctx.strokeStyle="blue";
                 ctx.stroke();
             }
+            x += 20;
+        }
+        x = 20;
+        y += 20;
+    }
 
-            /* four neighbors => claimed square */
-            if( squares[i][j] > 4 ) {
-                alert("bug!");
-            }
-
+    /* draw filled squares */
+    x=20;
+    y=20;
+    for( i=0 ; i<squares.length ; i++ ) {   /* foreach row */
+        for( j=0 ; j<squares[0].length ; j++ ) {   /* foreach col */
             if( squares[i][j]==4 ) {
                 ctx.fillStyle="#000000";
                 ctx.fillRect( x+1,y+1,18,18 );
             }
-
             x += 20;
         }
         x = 20;
@@ -462,14 +466,14 @@ function redraw_board()
     draw_board();
 }
 
-function create_empty_board() 
+function create_empty_board(max_row,max_col) 
 {
     var board = [];
     var i=0;
     var j=0;
-    for( i=0 ; i<20 ; i++ ) {
+    for( i=0 ; i<max_row ; i++ ) {
         board[i] = [];
-        for( j=0 ; j<20 ; j++ ) {
+        for( j=0 ; j<max_col ; j++ ) {
             board[i][j] = 0;
         }
     }
@@ -480,15 +484,14 @@ function create_empty_board()
 function run() {
     ctx = canvas.getContext('2d');
 
-    horiz_lines = create_empty_board();
-    vert_lines = create_empty_board();
-    squares = create_empty_board();
+    horiz_lines = create_empty_board(10,10);
+    vert_lines = create_empty_board(10,10);
+    squares = create_empty_board(9,9);
 
     /* temp for testing */
 //    squares[0][0] = 4;
 //    squares[1][1] = 4;
 
-//    draw_dots();
     draw_board();
 
     ctx.canvas.onmousedown = on_mousedown;

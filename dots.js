@@ -1,22 +1,35 @@
+/*  The dots game in JavaScript. Because I wanted to learn more JavaScript and
+ *  HTML5 Canvas.
+ *
+ *  davep 27-Nov-2013
+ *
+ */
+
 var last_pos={"x":0,"y":0};
 var ctx;
 var mouse_is_down=false;
 var horiz_lines = [];
 var vert_lines = [];
+var squares = [];
 var new_line = { "x0" : 0, "y0" : 0,
                  "x1" : 0, "y1" : 0,
                  "valid": false };
+/* constants to indicate direction of user's new line */
+const north = 1;
+const south = 2;
+const east = 3;
+const west = 4;
 
-function drawdot(dot_x,dot_y) {
-//        var c=document.getElementById("canvas");
-//        var ctx = canvas.getContext('2d');
+function drawdot(dot_x,dot_y) 
+{
     ctx.beginPath();
     ctx.fillStyle="#ff0000";
     ctx.arc(dot_x,dot_y,3,0,2*Math.PI);
     ctx.fill();
 }
 
-function on_mousedown(evt) {
+function on_mousedown(evt) 
+{
     /* find the closest two dots and draw line conntecting them */
     var x = evt.clientX;
     var y = evt.clientY;
@@ -39,11 +52,11 @@ function on_mousedown(evt) {
 //    }
 
 
-var PI_4 = Math.PI/4;       /* pi/4 */
-var PI_3_4 = (Math.PI*3)/4; /* 3*pi/4 */
+const PI_4 = Math.PI/4;       /* pi/4 */
+const PI_3_4 = (Math.PI*3)/4; /* 3*pi/4 */
 
-function on_mousemove(evt) {
-
+function on_mousemove(evt) 
+{
     if( !mouse_is_down ) {
         return false;
     }
@@ -52,7 +65,7 @@ function on_mousemove(evt) {
      * https://stackoverflow.com/questions/7365436/erasing-previously-drawn-lines-on-an-html5-canvas
      */
     ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
-    draw_dots();
+//    draw_dots();
     draw_board();
 
     /* the -10 is because the event point doesn't line up with the tip of
@@ -139,6 +152,33 @@ function on_mousemove(evt) {
     return false;
 }
 
+function check_closures()
+{
+    var row=0;
+    var col=0;
+    for( row=0; row<squares.length ; row++ ) {
+        for( col=0 ; col<squares[0].length ; col++ ) {
+
+            /* sanity checking */
+            if( squares[row][col] > 4 ) {
+                alert( "check_closures bug! at row="+row+" col="+col );
+                return;
+            }
+
+            if( squares[row][col] == 3 ) {
+                /* this is mine! */
+                squares[row][col] += 1;
+
+                /* mark the closing edge, too */
+                horiz_lines[row][col] = 1;
+                horiz_lines[row+1][col] = 1;
+                vert_lines[row][col] = 1;
+                vert_lines[row][col+1] = 1;
+            }
+        }
+    }
+}
+
 function on_mouseup(evt) {
 
     if( !mouse_is_down ) {
@@ -146,53 +186,123 @@ function on_mouseup(evt) {
     }
     mouse_is_down = false;
 
-    if( new_line.valid ) {
-        /* set the board position as dotted (note x,y reversed to row,col) */
+    if( !new_line.valid ) {
+        /* don't claim a square; just redraw a nice clean board */
+        redraw_board();
+        return false;
+    }
+
+    /* set the board position as dotted (note x,y reversed to row,col) */
 //        console.log("last_pos.x="+last_pos.x+" last_pos.y="+last_pos.y);
 
-        var row=0;
-        var col=0;
+    var row=0;
+    var col=0;
 
-        if( new_line.x0 < new_line.x1 ) {
-            /* horizontal right */
-            row = new_line.y0;
-            col = new_line.x0;
-        }
-        else if( new_line.x0 > new_line.x1 ) {
-            /* horizontal left */
-            row = new_line.y0;
-            col = new_line.x1;
-        }
-        if( new_line.y0 < new_line.y1 ) {
-            /* vertical down */
-            row = new_line.y0;
-            col = new_line.x0;
-        }
-        else if( new_line.y0 > new_line.y1 ) {
-            /* vertical up */
-            row = new_line.y1;
-            col = new_line.x0;
-        }
+    /* array of (row,col) of squares that border the new line */
+    var border_squares = [];
 
-        if( new_line.x0 != new_line.x1 ) {
-            /* adjust horizontal lines */
-            horiz_lines[row/20-1][col/20-1] = 1;
+    if( new_line.x0 < new_line.x1 ) {
+        /* horizontal right (west).  a,b are bordering squares
+         *     o   o   o
+         *           a
+         *     o   o-->o
+         *           b
+         *     o   o   o
+         */
+        row = new_line.y0/20-1;
+        col = new_line.x0/20-1;
+        border_squares.push([row-1,col],[row,col]);
+    }
+    else if( new_line.x0 > new_line.x1 ) {
+        /* horizontal left (west).  a,b are bordering squares
+         *     o   o   o
+         *       a
+         *     o<--o   o
+         *       b
+         *     o   o   o
+         */
+        row = new_line.y0/20-1;
+        col = new_line.x1/20-1;
+        border_squares.push([row-1,col],[row,col]);
+    }
+    if( new_line.y0 < new_line.y1 ) {
+        /* vertical down (south).  a,b are bordering squares
+         *     o   o   o
+         *        
+         *     o   o   o
+         *       a v b
+         *     o   o   o
+         */
+        row = new_line.y0/20-1;
+        col = new_line.x0/20-1;
+        border_squares.push([row,col-1],[row,col]);
+    }
+    else if( new_line.y0 > new_line.y1 ) {
+        /* vertical up (north).  a,b are bordering squares
+         *     o   o   o
+         *       a ^ b
+         *     o   o   o
+         *        
+         *     o   o   o
+         */
+        row = new_line.y1/20-1;
+        col = new_line.x0/20-1;
+        border_squares.push([row,col-1],[row,col]);
+    }
+
+    /* did someone re-choose a line already in-use? */
+    var valid_move = false;
+
+    if( new_line.x0 != new_line.x1 ) {
+        /* adjust horizontal lines */
+        if( horiz_lines[row][col] == 0 ) {
+            horiz_lines[row][col] = 1;
+            valid_move = true;
         }
-        if( new_line.y0 != new_line.y1 ) {
-            /* adjust vertical lines */
-            vert_lines[row/20-1][col/20-1] = 1;
+    }
+    if( new_line.y0 != new_line.y1 ) {
+        /* adjust vertical lines */
+        if( vert_lines[row][col] == 0 ) {
+            vert_lines[row][col] = 1;
+            valid_move = true;
         }
     }
 
+    console.log(border_squares);
+
+    if( valid_move ) {
+        var i=0;
+        var square_row = 0;
+        var square_col = 0;
+        for( i=0 ; i<border_squares.length ; i++ ) {
+            square_row = border_squares[i][0];
+            square_col = border_squares[i][1];
+
+            /* sanity checking */
+            if( squares[square_row][square_col] > 4 ) {
+                alert( "on_mouseup bug! at row="+row+" col="+col );
+                return;
+            }
+
+            squares[square_row][square_col] += 1;
+        }
+
+        /* search for any three sided squares that can now be claimed */
+        check_closures();
+    }
+
+
     /* redraw board to erase user's unconnected line */
-    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
-    draw_dots();
-    draw_board();
+//    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+//    draw_dots();
+//    draw_board();
+    redraw_board();
 
     return false;
 }
 
-function draw_dots() {
+function draw_dots() 
+{
     var i=0;
     var j=0;
     var x = 20;
@@ -216,7 +326,7 @@ function draw_dots() {
     }
 }
 
-function draw_board() 
+function draw_lines_and_squares()
 {
     var i=0;
     var j=0;
@@ -238,11 +348,34 @@ function draw_board()
                 ctx.strokeStyle="blue";
                 ctx.stroke();
             }
+
+            /* four neighbors => claimed square */
+            if( squares[i][j] > 4 ) {
+                alert("bug!");
+            }
+
+            if( squares[i][j]==4 ) {
+                ctx.fillStyle="#000000";
+                ctx.fillRect( x+1,y+1,18,18 );
+            }
+
             x += 20;
         }
         x = 20;
         y += 20;
     }
+}
+
+function draw_board() 
+{
+    draw_lines_and_squares();
+    draw_dots();
+}
+
+function redraw_board()
+{
+    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+    draw_board();
 }
 
 function create_empty_board() 
@@ -265,8 +398,14 @@ function run() {
 
     horiz_lines = create_empty_board();
     vert_lines = create_empty_board();
+    squares = create_empty_board();
 
-    draw_dots();
+    /* temp for testing */
+//    squares[0][0] = 4;
+//    squares[1][1] = 4;
+
+//    draw_dots();
+    draw_board();
 
     ctx.canvas.onmousedown = on_mousedown;
     ctx.canvas.onmouseup = on_mouseup;

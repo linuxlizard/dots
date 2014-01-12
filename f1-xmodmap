@@ -1,3 +1,0 @@
-! add F1 as another Esc key (Thinkpad keyboards)
-!remove F1
-keysym F1 = Escape

@@ -169,6 +169,8 @@ function check_closures()
                 /* this is mine! */
                 squares[row][col] += 1;
 
+                console.log("claim row="+row+" col="+col);
+
                 /* mark the closing edge, too */
                 horiz_lines[row][col] = 1;
                 horiz_lines[row+1][col] = 1;
@@ -177,6 +179,83 @@ function check_closures()
             }
         }
     }
+}
+
+function update_neighboring_squares( squares_list )
+{
+    /* squares_list[] is an array of [row,col] pairs of squares positions that
+     * need to be incremented. Called when we need to update the reference
+     * count on a square when a new line arrives.
+     */
+    console.log("update "+squares_list);
+
+    var i=0;
+    var square_row = 0;
+    var square_col = 0;
+    for( i=0 ; i<squares_list.length ; i++ ) {
+        square_row = squares_list[i][0];
+        square_col = squares_list[i][1];
+
+        console.log( "update row="+square_row+" col="+square_col );
+
+        /* if we are in range */
+        if( square_row >= 0 && square_row < 9 &&
+            square_col >=0 && square_col < 9 ) 
+        {
+            /* sanity checking */
+            if( squares[square_row][square_col] > 4 ) {
+                alert( "on_mouseup() bug! at row="+row+" col="+col );
+                return;
+            }
+
+            /* Increment reference count. When hits 3, the square will close. */
+            squares[square_row][square_col] += 1;
+        }
+    }
+    sanity_check();
+}
+
+function sanity_check() 
+{
+    /* validate board */
+    var row=0;
+    var col=0;
+
+    for( row=0; row<squares.length ; row++ ) {
+        for( col=0 ; col<squares[0].length ; col++ ) {
+
+            /* reference counter should always be in [0,4] */
+            if( squares[row][col] < 0 || squares[row][col] > 4 ) {
+                alert( "sanity square error at row="+row+" col="+col );
+                return;
+            }
+
+            /* check for horiz/vert boundaries not matching the squares (reference
+             * count should exactly match the squares neighboring lines)
+             */
+    //        horiz_above = [row,col];
+    //        horiz_below = [row+1,col];
+    //        vert_left = [row,col];
+    //        vert_right = [row,col+1];
+
+            var count=0;
+            count += horiz_lines[row][col];      // North 
+            if( row+1 < squares.length )  {
+                count += horiz_lines[row+1][col];    // South
+            }
+            count += vert_lines[row][col];       // West
+            if( col+1 < squares[0].length ) {
+                count += vert_lines[row][col+1];     // East
+            }
+            if( count != squares[row][col] ) {
+                alert( "sanity square error at row="+row+" col="+col+
+                        " square="+squares[row][col]+" neighbor_count="+count );
+                console.assert( count == squares[row][col] );
+            }
+        }
+
+    }
+
 }
 
 function on_mouseup(evt) {
@@ -257,39 +336,44 @@ function on_mouseup(evt) {
         /* adjust horizontal lines */
         if( horiz_lines[row][col] == 0 ) {
             horiz_lines[row][col] = 1;
-            valid_move = true;
+            update_neighboring_squares(border_squares);
+            /* search for any three sided squares that can now be claimed */
+            check_closures();
         }
     }
     if( new_line.y0 != new_line.y1 ) {
         /* adjust vertical lines */
         if( vert_lines[row][col] == 0 ) {
             vert_lines[row][col] = 1;
-            valid_move = true;
+            update_neighboring_squares(border_squares);
+            /* search for any three sided squares that can now be claimed */
+            check_closures();
         }
     }
 
-    console.log(border_squares);
+//    console.log(border_squares);
 
-    if( valid_move ) {
-        var i=0;
-        var square_row = 0;
-        var square_col = 0;
-        for( i=0 ; i<border_squares.length ; i++ ) {
-            square_row = border_squares[i][0];
-            square_col = border_squares[i][1];
-
-            /* sanity checking */
-            if( squares[square_row][square_col] > 4 ) {
-                alert( "on_mouseup bug! at row="+row+" col="+col );
-                return;
-            }
-
-            squares[square_row][square_col] += 1;
-        }
-
-        /* search for any three sided squares that can now be claimed */
-        check_closures();
-    }
+    /* increment count of neighboring squares */
+//    if( valid_move ) {
+//        var i=0;
+//        var square_row = 0;
+//        var square_col = 0;
+//        for( i=0 ; i<border_squares.length ; i++ ) {
+//            square_row = border_squares[i][0];
+//            square_col = border_squares[i][1];
+//
+//            /* sanity checking */
+//            if( squares[square_row][square_col] > 4 ) {
+//                alert( "on_mouseup bug! at row="+row+" col="+col );
+//                return;
+//            }
+//
+//            squares[square_row][square_col] += 1;
+//        }
+//
+//        /* search for any three sided squares that can now be claimed */
+//        check_closures();
+//    }
 
 
     /* redraw board to erase user's unconnected line */

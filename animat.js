@@ -28,29 +28,30 @@ var ctx;
 function calc_next_pos()
 {
     /* moving EAST/WEST */
-    if( direction==DIRECTION_WEST ) {
-        pos_x -= 1;
-        if( pos_x <= 50 ) {
-            direction = DIRECTION_EAST ;
-        }
-    }
-    else if( direction==DIRECTION_EAST ) {
-        pos_x += 1;
-        if( pos_x >= 590 ) {
-            direction = DIRECTION_WEST;
-        }
-    }
-    else if( direction==DIRECTION_NORTH ) {
-        pos_y -= 1;
-        if( pos_y <= 50 ) {
-            direction = DIRECTION_SOUTH;
-        }
-    }
-    else if( direction==DIRECTION_SOUTH ) {
-        pos_y += 1;
-        if( pos_y >= 430 ) {
-            direction = DIRECTION_NORTH;
-        }
+    switch( direction ) {
+        case DIRECTION_WEST :
+            if( pos_x > 50 ) {
+                pos_x -= 1;
+            }
+            break;
+
+        case DIRECTION_EAST :
+            if( pos_x < 590 ) {
+                pos_x += 1;
+            }
+            break;
+
+        case DIRECTION_NORTH :
+            if( pos_y > 50 ) {
+                pos_y -= 1;
+            }
+            break;
+
+        case DIRECTION_SOUTH :
+            if( pos_y < 430 ) {
+                pos_y += 1;
+            }
+            break;
     }
 }
 
@@ -197,6 +198,35 @@ function draw()
     calc_next_pos();
 }
 
+const KEY_LEFT = 37;
+const KEY_UP = 38;
+const KEY_RIGHT = 39;
+const KEY_DOWN = 40;
+
+function on_keydown(evt) 
+{
+    switch( evt.keyCode )
+    {
+        case KEY_UP:
+            console.log("direction from %d to %d",direction,DIRECTION_NORTH);
+            direction = DIRECTION_NORTH;
+            break;
+        case KEY_DOWN:
+            console.log("direction from %d to %d",direction,DIRECTION_SOUTH);
+            direction = DIRECTION_SOUTH;
+            break;
+        case KEY_LEFT:
+            console.log("direction from %d to %d",direction,DIRECTION_WEST);
+            direction = DIRECTION_WEST;
+            break;
+        case KEY_RIGHT:
+            console.log("direction from %d to %d",direction,DIRECTION_EAST);
+            direction = DIRECTION_EAST;
+            break;
+    }
+
+}
+
 /* Double Buffering??
  * https://stackoverflow.com/questions/2795269/does-html5-canvas-support-double-buffering
  *
@@ -212,6 +242,9 @@ function run()
     const FRAME_RATE=100;
     var intervalTime = 1000/FRAME_RATE;
     setInterval(draw,intervalTime);
+
+    ctx.canvas.onkeydown = on_keydown;
+    document.onkeydown = on_keydown;
 }
 
 window.onload=function() 
